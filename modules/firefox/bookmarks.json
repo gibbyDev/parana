@@ -1,0 +1,41 @@
+{
+    "guid": "root________",
+    "title": "Bookmarks Toolbar",
+    "children": [
+      {
+        "guid": "devops_folder",
+        "title": "DevOps Resources",
+        "type": "text/x-moz-place-container",
+        "children": [
+          {
+            "guid": "github",
+            "title": "GitHub",
+            "uri": "https://github.com"
+          },
+          {
+            "guid": "docker_hub",
+            "title": "Docker Hub",
+            "uri": "https://hub.docker.com"
+          }
+        ]
+      },
+      {
+        "guid": "learning_folder",
+        "title": "Learning",
+        "type": "text/x-moz-place-container",
+        "children": [
+          {
+            "guid": "oscp",
+            "title": "OSCP Study",
+            "uri": "https://offensive-security.com"
+          },
+          {
+            "guid": "go_fiber",
+            "title": "Go Fiber",
+            "uri": "https://gofiber.io"
+          }
+        ]
+      }
+    ]
+  }
+  
