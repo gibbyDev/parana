@@ -4,6 +4,8 @@
     ./kitty
     ./misc
     ./nvim
+    ./kde
+    ./code
     ./firefox
     ./yazi
   ];
