@@ -1,3 +1,4 @@
-import [
-  ./kde.nix
-];
+{ inputs, ... }: 
+{
+  imports = [ (import ./kde.nix) ];
+}

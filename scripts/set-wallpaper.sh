@@ -1,80 +1,105 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
+# ======================
+# Configuration
+# ======================
 
 WALLPAPER_DIR="$HOME/Pictures/wallpapers"
-WAYBAR_CONFIG_DIR="$HOME/.config/waybar"
-ROFI_CONFIG_DIR="$HOME/.config/rofi"
 INDEX_FILE="/tmp/current_wallpaper_index"
 
-WALLPAPERS=("${WALLPAPER_DIR}"/*)
-TOTAL_WALLPAPERS=${#WALLPAPERS[@]}
+# ======================
+# Load wallpapers
+# ======================
+
+mapfile -t WALLPAPERS < <(find "$WALLPAPER_DIR" -type f \( \
+    -iname '*.jpg' -o -iname '*.png' -o -iname '*.jpeg' -o -iname '*.webp' \
+\) | sort)
+
+TOTAL_WALLPAPERS="${#WALLPAPERS[@]}"
+
+if [[ "$TOTAL_WALLPAPERS" -eq 0 ]]; then
+    echo "No wallpapers found in $WALLPAPER_DIR"
+    exit 1
+fi
+
+# ======================
+# Load current index
+# ======================
 
 if [[ -f "$INDEX_FILE" ]]; then
-    CURRENT_INDEX=$(<"$INDEX_FILE")
+    CURRENT_INDEX="$(<"$INDEX_FILE")"
 else
     CURRENT_INDEX=0
 fi
 
-extract_rofi_colors() {
-    awk '/^\* {/,/^}/' "$HOME/.cache/wal/colors-rofi-dark.rasi" > "$ROFI_CONFIG_DIR/colors.rasi"
-}
+# ======================
+# KDE Plasma wallpaper setter
+# ======================
 
-copy_current_wallpaper() {
+set_kde_wallpaper() {
     local wallpaper="$1"
-    local wallpaper_filename=$(basename "$wallpaper")
-    cp "$wallpaper" "$ROFI_CONFIG_DIR/current_wallpaper.$(echo "$wallpaper_filename" | awk -F. '{print $NF}')"
+
+    qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+        var desktops = desktops();
+        for (var i = 0; i < desktops.length; i++) {
+            var d = desktops[i];
+            d.wallpaperPlugin = 'org.kde.image';
+            d.currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General'];
+            d.writeConfig('Image', 'file://$wallpaper');
+        }
+    "
 }
 
-set_wallpaper() {
+# ======================
+# Apply wallpaper + colors
+# ======================
+
+apply_wallpaper() {
     local wallpaper="${WALLPAPERS[$CURRENT_INDEX]}"
     echo "Setting wallpaper: $wallpaper"
 
-    # Change wallpaper
-    swww img "$wallpaper" --transition-type random
+    # KDE wallpaper
+    set_kde_wallpaper "$wallpaper"
 
-    # Generate colors and apply them using pywal
-    wal -i "$wallpaper"
+    # Generate pywal colors (no GTK reload)
+    wal -i "$wallpaper" --backend wal -n
 
-    # Update Pywalfox Firefox theme
-    pywalfox update
-
-    # Copy the generated Waybar color scheme
-    cp "$HOME/.cache/wal/colors-waybar.css" "$WAYBAR_CONFIG_DIR/colors-waybar.css"
-
-    cp "$HOME/.cache/wal/colors-waybar.css" "$HOME/.config/wlogout/colors-waybar.css"
-
-    cp "$HOME/.cache/wal/colors-wal.vim" "$HOME/.config/nvim/colors-wal.vim"
-
-    # Extract only the color variables from the rofi file
-    extract_rofi_colors
-
-    # Copy the current wallpaper to rofi config dir
-    copy_current_wallpaper "$wallpaper"
-
-    # Restart Waybar
-    if pgrep waybar > /dev/null; then
-        pkill waybar
-    fi
-    waybar &
-
-    if pgrep nvim > /dev/null; then
-        nvim --server /tmp/nvim.pipe --remote-send '<Esc>:source $HOME/.cache/wal/colors-wal.vim<CR>'
+    # Neovim colors
+    if [[ -f "$HOME/.cache/wal/colors-wal.vim" ]]; then
+        cp "$HOME/.cache/wal/colors-wal.vim" \
+           "$HOME/.config/nvim/colors-wal.vim"
     fi
 
+    # Reload Neovim if running
+    if pgrep -x nvim >/dev/null; then
+        nvim --server /tmp/nvim.pipe \
+             --remote-send '<Esc>:source $HOME/.cache/wal/colors-wal.vim<CR>' \
+             || true
+    fi
 }
+
+# ======================
+# Navigation
+# ======================
 
 next_wallpaper() {
     CURRENT_INDEX=$(( (CURRENT_INDEX + 1) % TOTAL_WALLPAPERS ))
     echo "$CURRENT_INDEX" > "$INDEX_FILE"
-    set_wallpaper
+    apply_wallpaper
 }
 
 prev_wallpaper() {
     CURRENT_INDEX=$(( (CURRENT_INDEX - 1 + TOTAL_WALLPAPERS) % TOTAL_WALLPAPERS ))
     echo "$CURRENT_INDEX" > "$INDEX_FILE"
-    set_wallpaper
+    apply_wallpaper
 }
 
-case "$1" in
+# ======================
+# Entry point
+# ======================
+
+case "${1:-}" in
     next)
         next_wallpaper
         ;;
@@ -83,6 +108,7 @@ case "$1" in
         ;;
     *)
         echo "Usage: $0 {next|prev}"
+        exit 1
         ;;
 esac
 

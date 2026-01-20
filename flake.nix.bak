@@ -1,5 +1,5 @@
 {
-  description = "NixOS with Plasma 6 and Home Manager";
+  description = "NixOS with Hyprland and Home Manager";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -9,19 +9,24 @@
 
   outputs = { self, nixpkgs, home-manager, ... }:
     let
+      lib = nixpkgs.lib;
       system = "x86_64-linux";
-      pkgs = import nixpkgs {
-        inherit system;
-      };
-    in
-    {
+      pkgs = nixpkgs.legacyPackages.${system};
 
+      # Clean source to pass into Home Manager module
+      src = lib.cleanSourceWith {
+        src = ./.;
+        filter = path: type:
+          let baseName = baseNameOf path;
+          in baseName != ".git" && baseName != ".direnv" && baseName != "result";
+      };
+    in {
       # NixOS system configuration
       nixosConfigurations = {
-        nixos = nixpkgs.lib.nixosSystem {
+        nixos = lib.nixosSystem {
           inherit system;
           modules = [
-            ./hosts/laptop/configuration.nix
+             ./hosts/laptop/configuration.nix  
           ];
         };
       };
@@ -30,13 +35,13 @@
       homeConfigurations = {
         cody = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
-          modules = [
+          extraSpecialArgs = { inherit src; }; # Pass `src` to `home.nix`
+          modules = [ 
             ./hosts/laptop/home.nix
           ];
-          username = "cody";
-          homeDirectory = "/home/cody";
         };
       };
     };
 }
+
 

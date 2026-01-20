@@ -134,6 +134,7 @@
     cmake
     go
     gnumake42
+    pywal
     pywalfox-native
   ];
 

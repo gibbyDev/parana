@@ -54,6 +54,8 @@
     cp -r ${../../wallpapers}/* ~/Pictures/wallpapers/
   '';
 
+  programs.home-manager.enable = true;
+
 }
 
 
